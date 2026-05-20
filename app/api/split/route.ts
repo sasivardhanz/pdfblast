@@ -49,7 +49,7 @@ export async function POST(req: Request) {
 
     const splitBytes = await newPdf.save();
 
-    return new Response(splitBytes, {
+    return new Response(Buffer.from(splitBytes), {
       headers: {
         "Content-Type": "application/pdf",
         "Content-Disposition": `attachment; filename="extracted-pages.pdf"`,

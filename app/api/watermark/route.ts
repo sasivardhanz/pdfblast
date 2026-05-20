@@ -40,7 +40,7 @@ export async function POST(req: Request) {
 
     const outputBytes = await pdf.save();
 
-    return new Response(outputBytes, {
+    return new Response(Buffer.from(outputBytes), {
       headers: {
         "Content-Type": "application/pdf",
         "Content-Disposition": `attachment; filename="watermarked-pdf.pdf"`,

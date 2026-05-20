@@ -46,7 +46,7 @@ export async function POST(req: Request) {
 
     const outputBytes = await newPdf.save();
 
-    return new Response(outputBytes, {
+    return new Response(Buffer.from(outputBytes), {
       headers: {
         "Content-Type": "application/pdf",
         "Content-Disposition": `attachment; filename="removed-pages.pdf"`,
