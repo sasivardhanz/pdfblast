@@ -31,7 +31,7 @@ export async function POST(req: Request) {
 
     const mergedBytes = await mergedPdf.save();
 
-    return new Response(mergedBytes, {
+    return new Response(Buffer.from(mergedBytes), {
       headers: {
         "Content-Type": "application/pdf",
         "Content-Disposition": `attachment; filename="merged-pdf.pdf"`,
@@ -40,9 +40,6 @@ export async function POST(req: Request) {
   } catch (error) {
     console.error(error);
 
-    return NextResponse.json(
-      { error: "Merge failed" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Merge failed" }, { status: 500 });
   }
 }
