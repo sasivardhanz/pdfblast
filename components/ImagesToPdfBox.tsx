@@ -64,21 +64,22 @@ export default function ImagesToPdfBox() {
 
   function getDownloadName() {
     const customName = cleanFileName(renameFile);
-
-    if (customName) {
-      return `${customName}.pdf`;
-    }
-
-    return "images-to-pdf.pdf";
+    return customName ? `${customName}.pdf` : "images-to-pdf.pdf";
   }
 
-  function readFileAsDataUrl(file: File): Promise<string> {
+  function readImage(file: File): Promise<HTMLImageElement> {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
 
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = reject;
+      reader.onload = () => {
+        const img = document.createElement("img");
 
+        img.onload = () => resolve(img);
+        img.onerror = reject;
+        img.src = reader.result as string;
+      };
+
+      reader.onerror = reject;
       reader.readAsDataURL(file);
     });
   }
@@ -95,22 +96,54 @@ export default function ImagesToPdfBox() {
       setMessage("");
       setDownloadUrl("");
 
-      const pdf = new jsPDF("p", "mm", "a4");
-      const pageWidth = pdf.internal.pageSize.getWidth();
-      const pageHeight = pdf.internal.pageSize.getHeight();
+      let pdf: jsPDF | null = null;
 
       for (let i = 0; i < files.length; i++) {
-        const imageData = await readFileAsDataUrl(files[i]);
+        const img = await readImage(files[i]);
 
-        if (i > 0) {
-          pdf.addPage();
+        const orientation = img.width > img.height ? "l" : "p";
+
+        const pageWidth = orientation === "p" ? 210 : 297;
+        const pageHeight = orientation === "p" ? 297 : 210;
+
+        if (!pdf) {
+          pdf = new jsPDF(orientation, "mm", "a4");
+        } else {
+          pdf.addPage("a4", orientation);
         }
 
-        pdf.addImage(imageData, "JPEG", 0, 0, pageWidth, pageHeight);
+        const margin = 10;
+        const usableWidth = pageWidth - margin * 2;
+        const usableHeight = pageHeight - margin * 2;
 
-        const currentProgress = Math.round(((i + 1) / files.length) * 90);
-        setProgress(currentProgress);
+        const imageRatio = img.width / img.height;
+        const pageRatio = usableWidth / usableHeight;
+
+        let finalWidth = usableWidth;
+        let finalHeight = usableHeight;
+
+        if (imageRatio > pageRatio) {
+          finalHeight = usableWidth / imageRatio;
+        } else {
+          finalWidth = usableHeight * imageRatio;
+        }
+
+        const x = (pageWidth - finalWidth) / 2;
+        const y = (pageHeight - finalHeight) / 2;
+
+        pdf.addImage(
+          img,
+          files[i].type.includes("png") ? "PNG" : "JPEG",
+          x,
+          y,
+          finalWidth,
+          finalHeight
+        );
+
+        setProgress(Math.round(((i + 1) / files.length) * 90));
       }
+
+      if (!pdf) return;
 
       const blob = pdf.output("blob");
       const url = window.URL.createObjectURL(blob);
