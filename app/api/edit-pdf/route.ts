@@ -24,7 +24,6 @@ export async function POST(req: Request) {
 
     const bytes = await file.arrayBuffer();
     const pdf = await PDFDocument.load(bytes);
-
     const pages = pdf.getPages();
 
     if (pageNumber < 1 || pageNumber > pages.length) {
@@ -65,7 +64,7 @@ export async function POST(req: Request) {
 
     const outputBytes = await pdf.save();
 
-    return new Response(outputBytes, {
+    return new Response(Buffer.from(outputBytes), {
       headers: {
         "Content-Type": "application/pdf",
         "Content-Disposition": `attachment; filename="edited-pdf.pdf"`,
