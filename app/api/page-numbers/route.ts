@@ -17,6 +17,7 @@ export async function POST(req: Request) {
     }
 
     const bytes = await file.arrayBuffer();
+
     const pdf = await PDFDocument.load(bytes);
 
     const font = await pdf.embedFont(StandardFonts.Helvetica);
@@ -31,34 +32,40 @@ export async function POST(req: Request) {
       let x = width / 2;
       let y = 30;
 
-      if (position === "top-left") {
-        x = 30;
-        y = height - 40;
-      }
+      switch (position) {
+        case "top-left":
+          x = 30;
+          y = height - 40;
+          break;
 
-      if (position === "top-center") {
-        x = width / 2;
-        y = height - 40;
-      }
+        case "top-center":
+          x = width / 2;
+          y = height - 40;
+          break;
 
-      if (position === "top-right") {
-        x = width - 40;
-        y = height - 40;
-      }
+        case "top-right":
+          x = width - 40;
+          y = height - 40;
+          break;
 
-      if (position === "bottom-left") {
-        x = 30;
-        y = 30;
-      }
+        case "bottom-left":
+          x = 30;
+          y = 30;
+          break;
 
-      if (position === "bottom-center") {
-        x = width / 2;
-        y = 30;
-      }
+        case "bottom-center":
+          x = width / 2;
+          y = 30;
+          break;
 
-      if (position === "bottom-right") {
-        x = width - 40;
-        y = 30;
+        case "bottom-right":
+          x = width - 40;
+          y = 30;
+          break;
+
+        default:
+          x = width / 2;
+          y = 30;
       }
 
       page.drawText(text, {
@@ -72,7 +79,7 @@ export async function POST(req: Request) {
 
     const outputBytes = await pdf.save();
 
-    return new Response(outputBytes, {
+    return new Response(Buffer.from(outputBytes), {
       headers: {
         "Content-Type": "application/pdf",
         "Content-Disposition":
