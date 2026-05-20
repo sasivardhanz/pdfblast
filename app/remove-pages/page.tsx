@@ -1,70 +1,59 @@
-import RemovePagesBox from "@/components/RemovePagesBox";
-import Link from "next/link";
-import { ArrowLeft, Trash2, MousePointerClick, Download } from "lucide-react";
+import { NextResponse } from "next/server";
+import { PDFDocument } from "pdf-lib";
 
-export default function RemovePagesPage() {
-  return (
-    <main className="min-h-screen bg-white text-black">
-      <nav className="border-b border-gray-100">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-5">
-          <Link href="/" className="text-2xl font-bold">
-            PDF<span className="text-blue-600">Blast</span>
-          </Link>
+export async function POST(req: Request) {
+  try {
+    const data = await req.formData();
 
-          <Link
-            href="/"
-            className="flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-blue-600"
-          >
-            <ArrowLeft size={16} />
-            Back
-          </Link>
-        </div>
-      </nav>
+    const file = data.get("file") as File;
+    const selectedPagesRaw = data.get("selectedPages") as string;
 
-      <section className="mx-auto max-w-5xl px-6 py-14 text-center">
-        <div className="mb-6 inline-flex rounded-full bg-blue-50 px-5 py-2 text-sm font-medium text-blue-700">
-          Remove unwanted PDF pages
-        </div>
+    if (!file) {
+      return NextResponse.json({ error: "No PDF uploaded" }, { status: 400 });
+    }
 
-        <h1 className="text-5xl font-bold tracking-tight md:text-6xl">
-          Remove Pages
-        </h1>
+    if (!selectedPagesRaw) {
+      return NextResponse.json({ error: "No pages selected" }, { status: 400 });
+    }
 
-        <p className="mx-auto mt-5 max-w-2xl text-lg leading-8 text-gray-600">
-          Upload a PDF, select the pages you want to remove, and download a
-          cleaned PDF.
-        </p>
+    const selectedPages = JSON.parse(selectedPagesRaw) as number[];
 
-        <div className="mt-10">
-          <RemovePagesBox />
-        </div>
-      </section>
+    const bytes = await file.arrayBuffer();
+    const pdf = await PDFDocument.load(bytes);
+    const totalPages = pdf.getPageCount();
 
-      <section className="mx-auto grid max-w-5xl gap-5 px-6 pb-20 md:grid-cols-3">
-        <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
-          <MousePointerClick className="mb-4 text-blue-600" />
-          <h3 className="font-semibold">Manual Selection</h3>
-          <p className="mt-2 text-sm leading-6 text-gray-600">
-            Click page numbers to select exactly what you want removed.
-          </p>
-        </div>
+    const pagesToKeep: number[] = [];
 
-        <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
-          <Trash2 className="mb-4 text-blue-600" />
-          <h3 className="font-semibold">Remove Pages</h3>
-          <p className="mt-2 text-sm leading-6 text-gray-600">
-            Delete selected pages and keep the remaining document.
-          </p>
-        </div>
+    for (let i = 0; i < totalPages; i++) {
+      const pageNumber = i + 1;
 
-        <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
-          <Download className="mb-4 text-blue-600" />
-          <h3 className="font-semibold">Instant Download</h3>
-          <p className="mt-2 text-sm leading-6 text-gray-600">
-            Rename and download your cleaned PDF instantly.
-          </p>
-        </div>
-      </section>
-    </main>
-  );
+      if (!selectedPages.includes(pageNumber)) {
+        pagesToKeep.push(i);
+      }
+    }
+
+    if (pagesToKeep.length === 0) {
+      return NextResponse.json(
+        { error: "You cannot remove all pages" },
+        { status: 400 }
+      );
+    }
+
+    const newPdf = await PDFDocument.create();
+    const copiedPages = await newPdf.copyPages(pdf, pagesToKeep);
+
+    copiedPages.forEach((page) => newPdf.addPage(page));
+
+    const outputBytes = await newPdf.save();
+
+    return new Response(Buffer.from(outputBytes), {
+      headers: {
+        "Content-Type": "application/pdf",
+        "Content-Disposition": `attachment; filename="removed-pages.pdf"`,
+      },
+    });
+  } catch (error) {
+    console.error(error);
+    return NextResponse.json({ error: "Remove pages failed" }, { status: 500 });
+  }
 }

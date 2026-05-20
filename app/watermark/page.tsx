@@ -1,70 +1,57 @@
-import WatermarkBox from "@/components/WatermarkBox";
-import Link from "next/link";
-import { ArrowLeft, Stamp, Type, Download } from "lucide-react";
+import { NextResponse } from "next/server";
+import { PDFDocument, rgb, degrees, StandardFonts } from "pdf-lib";
 
-export default function WatermarkPage() {
-  return (
-    <main className="min-h-screen bg-white text-black">
-      <nav className="border-b border-gray-100">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-5">
-          <Link href="/" className="text-2xl font-bold">
-            PDF<span className="text-blue-600">Blast</span>
-          </Link>
+export async function POST(req: Request) {
+  try {
+    const data = await req.formData();
 
-          <Link
-            href="/"
-            className="flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-blue-600"
-          >
-            <ArrowLeft size={16} />
-            Back
-          </Link>
-        </div>
-      </nav>
+    const file = data.get("file") as File;
+    const text = data.get("text") as string;
+    const fontSize = Number(data.get("fontSize"));
+    const opacity = Number(data.get("opacity"));
 
-      <section className="mx-auto max-w-5xl px-6 py-14 text-center">
-        <div className="mb-6 inline-flex rounded-full bg-blue-50 px-5 py-2 text-sm font-medium text-blue-700">
-          Add text watermark
-        </div>
+    if (!file) {
+      return NextResponse.json({ error: "No PDF uploaded" }, { status: 400 });
+    }
 
-        <h1 className="text-5xl font-bold tracking-tight md:text-6xl">
-          Watermark PDF
-        </h1>
+    if (!text) {
+      return NextResponse.json(
+        { error: "Watermark text is required" },
+        { status: 400 }
+      );
+    }
 
-        <p className="mx-auto mt-5 max-w-2xl text-lg leading-8 text-gray-600">
-          Add custom watermark text to every page of your PDF and download it
-          instantly.
-        </p>
+    const bytes = await file.arrayBuffer();
+    const pdf = await PDFDocument.load(bytes);
+    const font = await pdf.embedFont(StandardFonts.HelveticaBold);
 
-        <div className="mt-10">
-          <WatermarkBox />
-        </div>
-      </section>
+    const pages = pdf.getPages();
 
-      <section className="mx-auto grid max-w-5xl gap-5 px-6 pb-20 md:grid-cols-3">
-        <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
-          <Stamp className="mb-4 text-blue-600" />
-          <h3 className="font-semibold">Custom Watermark</h3>
-          <p className="mt-2 text-sm leading-6 text-gray-600">
-            Add words like CONFIDENTIAL, DRAFT, or your brand name.
-          </p>
-        </div>
+    pages.forEach((page) => {
+      const { width, height } = page.getSize();
+      const finalFontSize = fontSize || 40;
 
-        <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
-          <Type className="mb-4 text-blue-600" />
-          <h3 className="font-semibold">Text Controls</h3>
-          <p className="mt-2 text-sm leading-6 text-gray-600">
-            Adjust text size and opacity before downloading.
-          </p>
-        </div>
+      page.drawText(text, {
+        x: width / 2 - text.length * finalFontSize * 0.25,
+        y: height / 2,
+        size: finalFontSize,
+        font,
+        color: rgb(0.75, 0.75, 0.75),
+        opacity: opacity || 0.25,
+        rotate: degrees(-35),
+      });
+    });
 
-        <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
-          <Download className="mb-4 text-blue-600" />
-          <h3 className="font-semibold">Instant Download</h3>
-          <p className="mt-2 text-sm leading-6 text-gray-600">
-            Rename and download your watermarked PDF instantly.
-          </p>
-        </div>
-      </section>
-    </main>
-  );
+    const outputBytes = await pdf.save();
+
+    return new Response(Buffer.from(outputBytes), {
+      headers: {
+        "Content-Type": "application/pdf",
+        "Content-Disposition": `attachment; filename="watermarked-pdf.pdf"`,
+      },
+    });
+  } catch (error) {
+    console.error(error);
+    return NextResponse.json({ error: "Watermark failed" }, { status: 500 });
+  }
 }

@@ -1,98 +1,83 @@
-import PageNumbersBox from "@/components/PageNumbersBox";
+import { NextResponse } from "next/server";
+import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
 
-import Link from "next/link";
+export async function POST(req: Request) {
+  try {
+    const data = await req.formData();
 
-import {
-  ArrowLeft,
-  Hash,
-  Download,
-  FileDigit,
-} from "lucide-react";
+    const file = data.get("file") as File;
+    const position = data.get("position") as string;
+    const fontSize = Number(data.get("fontSize"));
 
-export default function PageNumbersPage() {
-  return (
-    <main className="min-h-screen bg-white text-black">
-      <nav className="border-b border-gray-100">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-5">
-          <Link
-            href="/"
-            className="text-2xl font-bold"
-          >
-            PDF
-            <span className="text-blue-600">
-              Blast
-            </span>
-          </Link>
+    if (!file) {
+      return NextResponse.json({ error: "No PDF uploaded" }, { status: 400 });
+    }
 
-          <Link
-            href="/"
-            className="flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-blue-600"
-          >
-            <ArrowLeft size={16} />
-            Back
-          </Link>
-        </div>
-      </nav>
+    const bytes = await file.arrayBuffer();
+    const pdf = await PDFDocument.load(bytes);
+    const font = await pdf.embedFont(StandardFonts.Helvetica);
 
-      <section className="mx-auto max-w-5xl px-6 py-14 text-center">
-        <div className="mb-6 inline-flex rounded-full bg-blue-50 px-5 py-2 text-sm font-medium text-blue-700">
-          Add page numbers
-        </div>
+    const pages = pdf.getPages();
 
-        <h1 className="text-5xl font-bold tracking-tight md:text-6xl">
-          Page Numbers PDF
-        </h1>
+    pages.forEach((page, index) => {
+      const { width, height } = page.getSize();
+      const text = `${index + 1}`;
 
-        <p className="mx-auto mt-5 max-w-2xl text-lg leading-8 text-gray-600">
-          Add page numbers to every page with
-          custom positions and sizes.
-        </p>
+      let x = width / 2;
+      let y = 30;
 
-        <div className="mt-10">
-          <PageNumbersBox />
-        </div>
-      </section>
+      if (position === "top-left") {
+        x = 30;
+        y = height - 40;
+      }
 
-      <section className="mx-auto grid max-w-5xl gap-5 px-6 pb-20 md:grid-cols-3">
-        <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
-          <Hash className="mb-4 text-blue-600" />
+      if (position === "top-center") {
+        x = width / 2;
+        y = height - 40;
+      }
 
-          <h3 className="font-semibold">
-            Automatic Numbering
-          </h3>
+      if (position === "top-right") {
+        x = width - 40;
+        y = height - 40;
+      }
 
-          <p className="mt-2 text-sm leading-6 text-gray-600">
-            Add page numbers to every page
-            instantly.
-          </p>
-        </div>
+      if (position === "bottom-left") {
+        x = 30;
+        y = 30;
+      }
 
-        <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
-          <FileDigit className="mb-4 text-blue-600" />
+      if (position === "bottom-center") {
+        x = width / 2;
+        y = 30;
+      }
 
-          <h3 className="font-semibold">
-            Custom Position
-          </h3>
+      if (position === "bottom-right") {
+        x = width - 40;
+        y = 30;
+      }
 
-          <p className="mt-2 text-sm leading-6 text-gray-600">
-            Place numbers at top, bottom,
-            left, right or center.
-          </p>
-        </div>
+      page.drawText(text, {
+        x,
+        y,
+        size: fontSize || 14,
+        font,
+        color: rgb(0, 0, 0),
+      });
+    });
 
-        <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
-          <Download className="mb-4 text-blue-600" />
+    const outputBytes = await pdf.save();
 
-          <h3 className="font-semibold">
-            Instant Download
-          </h3>
-
-          <p className="mt-2 text-sm leading-6 text-gray-600">
-            Rename and download your PDF
-            instantly.
-          </p>
-        </div>
-      </section>
-    </main>
-  );
+    return new Response(Buffer.from(outputBytes), {
+      headers: {
+        "Content-Type": "application/pdf",
+        "Content-Disposition": `attachment; filename="page-numbered.pdf"`,
+      },
+    });
+  } catch (error) {
+    console.error(error);
+    return NextResponse.json(
+      { error: "Failed to add page numbers" },
+      { status: 500 }
+    );
+  }
 }

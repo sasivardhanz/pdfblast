@@ -28,7 +28,7 @@ export async function POST(req: Request) {
 
     const rotatedBytes = await pdf.save();
 
-    return new Response(rotatedBytes, {
+    return new Response(Buffer.from(rotatedBytes), {
       headers: {
         "Content-Type": "application/pdf",
         "Content-Disposition": `attachment; filename="rotated-pdf.pdf"`,
