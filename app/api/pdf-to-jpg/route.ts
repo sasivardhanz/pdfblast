@@ -3,7 +3,8 @@ import fs from "fs";
 import path from "path";
 import os from "os";
 import { exec } from "child_process";
-import archiver from "archiver";
+
+const archiver = require("archiver");
 
 export async function POST(req: Request) {
   try {
@@ -39,7 +40,9 @@ export async function POST(req: Request) {
       `jpg-pages-${jobId}.zip`
     );
 
-    fs.mkdirSync(outputFolder, { recursive: true });
+    fs.mkdirSync(outputFolder, {
+      recursive: true,
+    });
 
     fs.writeFileSync(inputPath, buffer);
 
@@ -77,7 +80,7 @@ export async function POST(req: Request) {
 
       output.on("close", () => resolve());
 
-      archive.on("error", (err) => reject(err));
+      archive.on("error", (err: Error) => reject(err));
 
       archive.pipe(output);
 
