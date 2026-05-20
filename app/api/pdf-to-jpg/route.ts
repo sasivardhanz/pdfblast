@@ -3,7 +3,7 @@ import fs from "fs";
 import path from "path";
 import os from "os";
 import { exec } from "child_process";
-import archiver from "archiver";
+import archiver = require("archiver");
 
 export async function POST(req: Request) {
   try {
@@ -41,7 +41,10 @@ export async function POST(req: Request) {
       .filter((name) => name.endsWith(".jpg"));
 
     if (jpgFiles.length === 0) {
-      return NextResponse.json({ error: "No JPG files created" }, { status: 500 });
+      return NextResponse.json(
+        { error: "No JPG files created" },
+        { status: 500 }
+      );
     }
 
     await new Promise<void>((resolve, reject) => {
